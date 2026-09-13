@@ -15,8 +15,26 @@ from monitor.ingestion.cursor_store import CursorStore
 from monitor.ingestion.event_bus import InMemoryEventBus
 from monitor.ingestion.sink import SubstreamsSink
 from monitor.ingestion.substreams_client import FakeSubstreamsClient, SubstreamsMessage
+from monitor.protocols.models import NormalizedEvent
 
 _KEY = "aave-v2-ethereum"
+
+
+async def _drain_tx_hashes(bus: InMemoryEventBus) -> set[str]:
+    """Pull every currently-queued message off the bus and return its tx hashes.
+
+    Snapshotting qsize() once up front (rather than looping with a sentinel)
+    is what caused a real deadlock earlier in this project when a stray `+ 1`
+    crept into this exact pattern — kept as one shared helper now so that bug
+    class can't recur in more than one place.
+    """
+    count = bus.qsize()
+    hashes = set()
+    for _ in range(count):
+        message = await bus.get()
+        assert isinstance(message, NormalizedEvent)
+        hashes.add(message.tx_hash)
+    return hashes
 
 
 def _block_message(index: int) -> SubstreamsMessage:
@@ -45,6 +63,8 @@ async def test_resume_after_crash_has_no_gap_and_no_duplicate(tmp_path):
     bus_1 = InMemoryEventBus()
     sink_1 = SubstreamsSink(
         _KEY,
+        "aave-v2",
+        "ethereum",
         FakeSubstreamsClient(all_messages[:2]),
         AaveV2EventDecoder(),
         cursor_store_1,
@@ -53,7 +73,7 @@ async def test_resume_after_crash_has_no_gap_and_no_duplicate(tmp_path):
     await sink_1.run()
     cursor_store_1.close()
 
-    seen_after_run_1 = {(await bus_1.get()).tx_hash for _ in range(bus_1.qsize())}
+    seen_after_run_1 = await _drain_tx_hashes(bus_1)
     assert seen_after_run_1 == {"0xtx1", "0xtx2"}
 
     # Run 2: a fresh process (fresh CursorStore connection to the same file,
@@ -63,6 +83,8 @@ async def test_resume_after_crash_has_no_gap_and_no_duplicate(tmp_path):
     bus_2 = InMemoryEventBus()
     sink_2 = SubstreamsSink(
         _KEY,
+        "aave-v2",
+        "ethereum",
         FakeSubstreamsClient(all_messages),
         AaveV2EventDecoder(),
         cursor_store_2,
@@ -70,7 +92,7 @@ async def test_resume_after_crash_has_no_gap_and_no_duplicate(tmp_path):
     )
     await sink_2.run()
 
-    seen_after_run_2 = {(await bus_2.get()).tx_hash for _ in range(bus_2.qsize())}
+    seen_after_run_2 = await _drain_tx_hashes(bus_2)
     assert seen_after_run_2 == {"0xtx3", "0xtx4", "0xtx5"}
 
     # No gap (all 5 seen across both runs) and no duplicate (no overlap between them).

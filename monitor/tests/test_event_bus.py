@@ -26,6 +26,7 @@ async def test_publish_then_get_roundtrips():
     bus = InMemoryEventBus()
     await bus.publish(_event("0xabc"))
     received = await bus.get()
+    assert isinstance(received, NormalizedEvent)
     assert received.tx_hash == "0xabc"
 
 
@@ -35,8 +36,12 @@ async def test_events_are_delivered_in_publish_order():
     bus = InMemoryEventBus()
     await bus.publish(_event("0x1"))
     await bus.publish(_event("0x2"))
-    assert (await bus.get()).tx_hash == "0x1"
-    assert (await bus.get()).tx_hash == "0x2"
+    first = await bus.get()
+    second = await bus.get()
+    assert isinstance(first, NormalizedEvent)
+    assert isinstance(second, NormalizedEvent)
+    assert first.tx_hash == "0x1"
+    assert second.tx_hash == "0x2"
 
 
 @pytest.mark.asyncio

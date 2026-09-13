@@ -1,4 +1,4 @@
-"""Hands normalized events from the sink to whatever consumes them next.
+"""Hands normalized events (and reorg undo signals) from the sink to whatever consumes them next.
 
 In-process asyncio.Queue, not Redis Streams: Phase 1's sink and its one
 consumer run in the same process, so a queue genuinely is the real
@@ -11,18 +11,37 @@ specifically so that swap is a new class, not a rewrite of the sink.
 import asyncio
 from typing import Protocol
 
+from pydantic import BaseModel
+
 from monitor.protocols.models import NormalizedEvent
 
 
-class EventBus(Protocol):
-    """Publishes normalized events for downstream consumers to read."""
+class UndoSignal(BaseModel):
+    """Tells consumers to revert any state built from events after last_valid_block.
 
-    async def publish(self, event: NormalizedEvent) -> None:
-        """Publish one event."""
+    Phase 1's sink persisted the cursor on a reorg but never told downstream
+    consumers about it (see sink.py's original docstring) — this is that gap
+    closed: the scoring engine (Phase 2) needs this to call
+    PositionLedger.undo() at the right point.
+    """
+
+    protocol: str
+    chain: str
+    last_valid_block: int
+
+
+BusMessage = NormalizedEvent | UndoSignal
+
+
+class EventBus(Protocol):
+    """Publishes normalized events and undo signals for downstream consumers to read."""
+
+    async def publish(self, message: BusMessage) -> None:
+        """Publish one message."""
         ...
 
-    async def get(self) -> NormalizedEvent:
-        """Block until the next published event is available."""
+    async def get(self) -> BusMessage:
+        """Block until the next published message is available."""
         ...
 
 
@@ -31,16 +50,16 @@ class InMemoryEventBus:
 
     def __init__(self) -> None:
         """Create an unbounded in-memory queue."""
-        self._queue: asyncio.Queue[NormalizedEvent] = asyncio.Queue()
+        self._queue: asyncio.Queue[BusMessage] = asyncio.Queue()
 
-    async def publish(self, event: NormalizedEvent) -> None:
-        """Enqueue one event."""
-        await self._queue.put(event)
+    async def publish(self, message: BusMessage) -> None:
+        """Enqueue one message."""
+        await self._queue.put(message)
 
-    async def get(self) -> NormalizedEvent:
-        """Dequeue the next event, waiting if none is available yet."""
+    async def get(self) -> BusMessage:
+        """Dequeue the next message, waiting if none is available yet."""
         return await self._queue.get()
 
     def qsize(self) -> int:
-        """Return the number of events currently queued (mainly for tests)."""
+        """Return the number of messages currently queued (mainly for tests)."""
         return self._queue.qsize()
