@@ -1,0 +1,38 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8098:8098"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./data:/app/data
+      # Same key-reuse trick as bare-metal (see monitor/config.py): mounts the
+      # sibling repo's .env read-only at the identical absolute path so that
+      # hardcoded path still resolves inside the container. Docker requires
+      # the source to exist at `docker compose up` time — remove this line if
+      # that sibling repo isn't checked out on the host; the app still runs
+      # fine without it, just without the AI layer (settings.anthropic_api_key
+      # would be unset, and every AI call site already degrades gracefully).
+      - /home/numrise/eth26-graph-trail/.env:/home/numrise/eth26-graph-trail/.env:ro
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9099:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - app
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3033:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus

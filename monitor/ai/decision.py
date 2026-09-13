@@ -16,7 +16,7 @@ from typing import Literal
 from anthropic.types import ToolParam
 from pydantic import BaseModel
 
-from monitor.ai.llm_client import get_anthropic_client
+from monitor.ai.llm_client import get_anthropic_client, timed_call
 from monitor.config import settings
 from monitor.protocols.models import PositionState
 
@@ -85,22 +85,25 @@ def recommend_action(
     repay_debt_amount = debt_to_repay_for_target(position, target_health_factor)
 
     client = get_anthropic_client()
-    response = client.messages.create(
-        model=settings.anthropic_model,
-        max_tokens=200,
-        system=_SYSTEM_PROMPT,
-        tools=[_TOOL_SCHEMA],
-        tool_choice={"type": "tool", "name": _TOOL_NAME},
-        messages=[
-            {
-                "role": "user",
-                "content": (
-                    f"Option A (add_collateral): ${add_collateral_amount:,.2f}\n"
-                    f"Option B (repay_debt): ${repay_debt_amount:,.2f}\n"
-                    f"Target health factor: {target_health_factor}"
-                ),
-            }
-        ],
+    response = timed_call(
+        "decision",
+        lambda: client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=200,
+            system=_SYSTEM_PROMPT,
+            tools=[_TOOL_SCHEMA],
+            tool_choice={"type": "tool", "name": _TOOL_NAME},
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        f"Option A (add_collateral): ${add_collateral_amount:,.2f}\n"
+                        f"Option B (repay_debt): ${repay_debt_amount:,.2f}\n"
+                        f"Target health factor: {target_health_factor}"
+                    ),
+                }
+            ],
+        ),
     )
     tool_use = next(block for block in response.content if block.type == "tool_use")
     extracted = tool_use.input

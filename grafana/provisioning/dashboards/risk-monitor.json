@@ -1,0 +1,81 @@
+{
+  "title": "Risk Monitor",
+  "uid": "risk-monitor",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Events processed by kind",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "monitor_events_processed_total",
+          "legendFormat": "{{event_kind}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Risk transitions",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "monitor_risk_transitions_total",
+          "legendFormat": "{{from_level}} -> {{to_level}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Alerts sent",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(monitor_alerts_sent_total)",
+          "legendFormat": "alerts",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Sink retries (ingestion resilience)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(monitor_sink_retries_total)",
+          "legendFormat": "retries",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "LLM call duration (p50)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum(rate(monitor_llm_call_duration_seconds_bucket[5m])) by (le, kind))",
+          "legendFormat": "{{kind}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

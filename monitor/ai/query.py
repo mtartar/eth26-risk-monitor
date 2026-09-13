@@ -11,7 +11,7 @@ from datetime import datetime
 
 from anthropic.types import ToolParam
 
-from monitor.ai.llm_client import get_anthropic_client
+from monitor.ai.llm_client import get_anthropic_client, timed_call
 from monitor.config import settings
 from monitor.scoring.scoring_engine import ScoringEngine
 
@@ -58,13 +58,16 @@ def answer_position_query(
 ) -> str:
     """Answer a plain-English question about tracked positions using real engine state."""
     client = get_anthropic_client()
-    classify_response = client.messages.create(
-        model=settings.anthropic_model,
-        max_tokens=200,
-        system=_CLASSIFY_SYSTEM_PROMPT,
-        tools=[_TOOL_SCHEMA],
-        tool_choice={"type": "tool", "name": _TOOL_NAME},
-        messages=[{"role": "user", "content": question}],
+    classify_response = timed_call(
+        "query_classify",
+        lambda: client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=200,
+            system=_CLASSIFY_SYSTEM_PROMPT,
+            tools=[_TOOL_SCHEMA],
+            tool_choice={"type": "tool", "name": _TOOL_NAME},
+            messages=[{"role": "user", "content": question}],
+        ),
     )
     tool_use = next(block for block in classify_response.content if block.type == "tool_use")
     extracted = tool_use.input
@@ -85,10 +88,13 @@ def answer_position_query(
     ]
     facts = "\n".join(f"{user}: health factor {hf:.3f}" for user, hf in health_factors)
 
-    answer_response = client.messages.create(
-        model=settings.anthropic_model,
-        max_tokens=150,
-        system=_ANSWER_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": f"Question: {question}\n\nReal data:\n{facts}"}],
+    answer_response = timed_call(
+        "query_answer",
+        lambda: client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=150,
+            system=_ANSWER_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": f"Question: {question}\n\nReal data:\n{facts}"}],
+        ),
     )
     return "".join(block.text for block in answer_response.content if block.type == "text")

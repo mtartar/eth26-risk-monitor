@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Risk Monitor</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 2rem; background: #0f172a; color: #e2e8f0; }
+  h1 { font-size: 1.4rem; }
+  .badge { padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+  .SAFE { background: #14532d; color: #bbf7d0; }
+  .WARNING { background: #713f12; color: #fde68a; }
+  .DANGER { background: #7f1d1d; color: #fecaca; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 2rem; }
+  th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #334155; font-size: 0.9rem; }
+  #alerts { max-height: 260px; overflow-y: auto; border: 1px solid #334155; border-radius: 6px; padding: 0.5rem; }
+  .alert { padding: 0.4rem 0; border-bottom: 1px solid #1e293b; font-size: 0.85rem; }
+  #query-answer { margin-top: 0.5rem; padding: 0.6rem; background: #1e293b; border-radius: 6px; min-height: 1.2rem; }
+  input, button { font-size: 0.9rem; padding: 0.4rem 0.6rem; }
+  input[type=text] { width: 60%; }
+</style>
+</head>
+<body>
+  <h1>🩺 Risk Monitor</h1>
+
+  <h2>Tracked positions</h2>
+  <table id="positions">
+    <thead><tr><th>User</th><th>Health factor</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Ask a question</h2>
+  <input type="text" id="question" placeholder="e.g. Which tracked position is riskiest right now?" />
+  <button id="ask">Ask</button>
+  <div id="query-answer"></div>
+
+  <h2>Live alerts</h2>
+  <div id="alerts"></div>
+
+<script>
+function levelBadge(level) {
+  return `<span class="badge ${level}">${level}</span>`;
+}
+
+async function refreshPositions() {
+  const res = await fetch("/positions");
+  const positions = await res.json();
+  const tbody = document.querySelector("#positions tbody");
+  tbody.innerHTML = "";
+  for (const p of positions) {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${p.user_address}</td><td>${p.health_factor.toFixed(3)}</td>`;
+    tbody.appendChild(row);
+  }
+}
+
+function addAlert(msg) {
+  const div = document.createElement("div");
+  div.className = "alert";
+  div.innerHTML =
+    `${levelBadge(msg.from_level)} → ${levelBadge(msg.to_level)} ` +
+    `<b>${msg.user_address}</b> — HF ${msg.health_factor.toFixed(3)} (block ${msg.as_of_block})` +
+    (msg.explanation ? `<div>${msg.explanation}</div>` : "");
+  const container = document.getElementById("alerts");
+  container.prepend(div);
+}
+
+const ws = new WebSocket(`ws://${location.host}/ws`);
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  addAlert(msg);
+  refreshPositions();
+};
+
+document.getElementById("ask").addEventListener("click", async () => {
+  const question = document.getElementById("question").value;
+  if (!question) return;
+  const answerBox = document.getElementById("query-answer");
+  answerBox.textContent = "Thinking...";
+  const res = await fetch("/query", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+  const data = await res.json();
+  answerBox.textContent = data.answer;
+});
+
+refreshPositions();
+setInterval(refreshPositions, 10000);
+</script>
+</body>
+</html>

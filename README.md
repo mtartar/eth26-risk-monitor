@@ -11,11 +11,28 @@ A real-time risk-monitoring agent for DeFi lending positions, built on The Graph
 - `poc-thegraph/03_names_and_architecture.md` — naming, ETHOnline 2026 track-fit strategy, production architecture
 - `poc-thegraph/04_implementation_plan.md` — the phased build plan this repo follows
 
-## Status: Phase 3 (AI reasoning layer) complete
+## Status: Phase 5 (observability & hardening) complete — the whole system runs together
 
-Phase 1 built real event ingestion (`chain → gRPC → decoder → cursor-persisted sink → event bus`), resumable after a crash with no gap and no duplicate. Phase 2 turned those events into a live health factor per user (`monitor/scoring/`), reorg-safe and alert-fatigue-safe, validated against two real historical Aave v2 liquidations. Phase 3 adds the AI layer (`monitor/ai/`): a corrective-action recommendation (real math computed first — Claude can only choose *which* precomputed option, not invent a number), plain-English explanations of *why* risk changed, and a natural-language query interface over live tracked positions. All three are verified against the real Anthropic API, not just mocks — `pytest -m integration` → 5 passed, covering the plan's required 3 distinct scenarios (price crash, new large borrow, partial repayment). See [docs/phase3_findings.md](docs/phase3_findings.md).
+Phases 1–3 built ingestion, scoring, and an AI reasoning layer. **Phase 4** (`monitor/pipeline.py`) wires them into one running system for the first time — ingestion → scoring → AI → webhook alerting — with a live dashboard (`monitor/dashboard/`, WebSocket push + REST + NL query box). **Phase 5** adds Prometheus metrics, structured JSON logging, real-token-based LLM cost tracking, and retry-with-backoff resilience around ingestion, all wrapped in a Docker Compose stack (app + Prometheus + Grafana) that was actually built, run, and verified in this environment — not just written. See [docs/phase4_findings.md](docs/phase4_findings.md) and [docs/phase5_findings.md](docs/phase5_findings.md) for the full story, including a real bug (demo mode's cursor colliding with production's) caught by running the demo pipeline twice in a row, and the deliberate scope cuts (no Redis/Postgres, no OpenTelemetry, no ECS/K8s docs) made for this phase's "keep it simple" mandate.
 
-Two pivots from earlier phases carry forward: **Phase 0 targeted Aave v3, but no verified v3 Substreams package exists** — the real, working pipeline targets **Aave v2** instead ([docs/phase1_findings.md](docs/phase1_findings.md)); and raw Aave events carry no USD price, resolved by recognizing health factor is a ratio invariant to a consistently-applied price unit ([docs/phase2_findings.md](docs/phase2_findings.md)).
+No `SUBSTREAMS_API_TOKEN` is available in this environment, so the running system operates in **demo mode**: a small, clearly-synthetic SAFE → WARNING → DANGER → SAFE event sequence (reusing Phase 2's hand-verified numbers) flows through the real pipeline, producing real Anthropic API calls, real Prometheus metrics, and real dashboard updates — everything is real except the chain data itself, which is honestly labeled as synthetic throughout.
+
+Earlier pivots carry forward: **Phase 0 targeted Aave v3, but no verified v3 Substreams package exists** — the real, working pipeline targets **Aave v2** instead ([docs/phase1_findings.md](docs/phase1_findings.md)); raw Aave events carry no USD price, resolved by recognizing health factor is a ratio invariant to a consistently-applied price unit ([docs/phase2_findings.md](docs/phase2_findings.md)).
+
+## Running the full stack
+
+```bash
+docker compose up -d --build
+```
+
+(This environment needed `DOCKER_BUILDKIT=0 docker compose up -d --build` — the `docker-buildx` plugin wasn't wired up for this user; try without it first.)
+
+- Dashboard: **http://localhost:8098**
+- Prometheus: **http://localhost:9099**
+- Grafana: **http://localhost:3033** (`admin` / `admin`) — the "Risk Monitor" dashboard and Prometheus datasource are auto-provisioned, no manual setup needed
+- `docker compose down` to stop everything
+
+Ports were chosen to avoid several unrelated services already running on this shared machine on 8000/9090/3030.
 
 ## Design: generic by construction
 

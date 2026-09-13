@@ -6,7 +6,7 @@ cause and every number are facts computed elsewhere and handed in; the model
 is asked to explain, not to determine what happened.
 """
 
-from monitor.ai.llm_client import get_anthropic_client
+from monitor.ai.llm_client import get_anthropic_client, timed_call
 from monitor.config import settings
 from monitor.scoring.risk_state import RiskTransition
 
@@ -30,10 +30,13 @@ def explain_transition(
         facts.append(f"{key}: {value}")
 
     client = get_anthropic_client()
-    response = client.messages.create(
-        model=settings.anthropic_model,
-        max_tokens=150,
-        system=_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": "\n".join(facts)}],
+    response = timed_call(
+        "explanation",
+        lambda: client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=150,
+            system=_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": "\n".join(facts)}],
+        ),
     )
     return "".join(block.text for block in response.content if block.type == "text")

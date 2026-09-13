@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-haiku-4-5-20251001"
 
+    alert_webhook_url: str | None = None
+    dashboard_port: int = 8098
+
     model_config = SettingsConfigDict(
         env_file=(_GRAPH_TRAIL_ENV, ".env"),
         env_prefix="",
