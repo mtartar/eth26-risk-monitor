@@ -1,9 +1,5 @@
 # Glossary — for newcomers to DeFi and The Graph
 
-*Read this before `03_names_and_architecture.md` or the code if any of these terms are new to you. Everything here is explained in plain English first, with the precise technical detail after.*
-
----
-
 ## The DeFi lending concepts
 
 ### Collateral, debt, and why this project exists
@@ -18,21 +14,25 @@ Crypto prices move fast. If your collateral's price drops enough, its value can 
 
 The number every lending protocol computes to answer "how close to liquidation is this position?":
 
-```
-health_factor = (collateral value × liquidation threshold) / debt value
+```python
+health_factor = (collateral_value * liquidation_threshold) / debt_value
 ```
 
 - **Liquidation threshold** is a safety margin set by the protocol per asset (e.g. 80%) — only 80% of your collateral's value "counts" toward safety, as a buffer.
 - **Health factor > 1** → safe. **Health factor ≤ 1** → eligible for liquidation.
 
 **Worked example:** you've deposited $10,000 of ETH as collateral (liquidation threshold 80%) and borrowed $4,000 of USDC.
+
 ```
-health_factor = (10,000 × 0.80) / 4,000 = 2.0   →  safe, well above 1
+health_factor = ($10,000 * 0.80) / $4,000   =  2.0   →  safe, well above 1
 ```
+
 If ETH's price then drops so your collateral is worth only $5,000:
+
 ```
-health_factor = (5,000 × 0.80) / 4,000 = 1.0   →  now exactly at the liquidation line
+health_factor = ($5,000 * 0.80) / $4,000    =  1.0   →  now exactly at the liquidation line
 ```
+
 This is the exact formula implemented in `monitor/protocols/aave_v3_ethereum.py`'s `AaveV3RiskModel`, and the exact scenario the four test cases in `test_aave_v3_risk_model.py` walk through numerically.
 
 ### Why "real-time" matters here
@@ -42,8 +42,6 @@ Most people check a lending dashboard once a day. A health factor can cross 1.0 
 ### Reorgs (reorganizations)
 
 A blockchain occasionally revises its most recent history — a few recently-produced blocks get replaced by a different set. This is normal, expected behavior, not an error. It means an event this system just processed might need to be **retracted** (undone). Any real-time system built on live chain data has to handle this correctly, or it risks scoring a position based on data that later turned out to be wrong. See `PositionState`/`RiskModel` in the code — the scoring engine (Phase 2, not built yet) is designed around apply/undo deltas specifically because of this.
-
----
 
 ## The Graph's ecosystem
 
@@ -65,8 +63,6 @@ Different lending protocols structure their data completely differently by defau
 
 MCP is a protocol that lets an AI assistant call external tools/data sources directly. `graph-lending-mcp` is an existing open-source MCP server that uses the Messari standardized schema to let an AI (or a script) ask one question — "compare USDC borrow rates across all protocols" — and get an answer assembled from **40+ different lending protocols' subgraphs at once**. This project reuses it for cross-protocol context rather than reimplementing that fan-out logic.
 
----
-
 ## Python patterns used in this codebase (for newer Python developers)
 
 ### Pydantic `BaseModel`
@@ -80,8 +76,6 @@ A class that validates its own fields automatically. `PositionState(total_collat
 ### Why a "registry" file
 
 `monitor/protocols/registry.py` is a plain dictionary mapping a string key (`"aave-v3-ethereum"`) to a config and a risk model. This is a common, simple pattern for "pluggable" systems: the rest of the codebase never needs an `if protocol == "aave"` conditional anywhere — it just looks up whatever protocol/chain key it's been asked to handle.
-
----
 
 ## Where to go next
 

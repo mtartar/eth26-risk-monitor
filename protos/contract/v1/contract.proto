@@ -1,0 +1,190 @@
+// Extracted verbatim (field names/numbers/types) from the real, published
+// "aave-v2-lending-pool" v0.1.4 Substreams package (streamingfast, mainnet),
+// downloaded from https://spkg.io/streamingfast/aave-v2-lending-pool-v0.1.4.spkg
+// and decoded via its own embedded FileDescriptorProto set — not hand-written
+// from documentation. This is the real wire schema for the "map_events"
+// module's output. See docs/phase1_findings.md for how this was obtained.
+//
+// amount/rate/index fields are strings, not integers: Solidity uint256 values
+// don't fit in protobuf's 64-bit integer types, so the codegen represents
+// them as decimal strings instead.
+syntax = "proto3";
+
+package contract.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message Events {
+  repeated Borrow borrows = 1;
+  repeated Deposit deposits = 2;
+  repeated FlashLoan flash_loans = 3;
+  repeated LiquidationCall liquidation_calls = 4;
+  repeated Paused pauseds = 5;
+  repeated RebalanceStableBorrowRate rebalance_stable_borrow_rates = 6;
+  repeated Repay repays = 7;
+  repeated ReserveDataUpdated reserve_data_updateds = 8;
+  repeated ReserveUsedAsCollateralDisabled reserve_used_as_collateral_disableds = 9;
+  repeated ReserveUsedAsCollateralEnabled reserve_used_as_collateral_enableds = 10;
+  repeated Swap swaps = 11;
+  repeated TokensRescued tokens_rescueds = 12;
+  repeated Unpaused unpauseds = 13;
+  repeated Upgraded upgradeds = 14;
+  repeated Withdraw withdraws = 15;
+}
+
+message Borrow {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes reserve = 5;
+  bytes user = 6;
+  bytes on_behalf_of = 7;
+  string amount = 8;
+  string borrow_rate_mode = 9;
+  string borrow_rate = 10;
+  uint64 referral = 11;
+}
+
+message Deposit {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes reserve = 5;
+  bytes user = 6;
+  bytes on_behalf_of = 7;
+  string amount = 8;
+  uint64 referral = 9;
+}
+
+message FlashLoan {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes target = 5;
+  bytes initiator = 6;
+  bytes asset = 7;
+  string amount = 8;
+  string premium = 9;
+  uint64 referral_code = 10;
+}
+
+message LiquidationCall {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes collateral_asset = 5;
+  bytes debt_asset = 6;
+  bytes user = 7;
+  string debt_to_cover = 8;
+  string liquidated_collateral_amount = 9;
+  bytes liquidator = 10;
+  bool receive_a_token = 11;
+}
+
+message Paused {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+}
+
+message RebalanceStableBorrowRate {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes reserve = 5;
+  bytes user = 6;
+}
+
+message Repay {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes reserve = 5;
+  bytes user = 6;
+  bytes repayer = 7;
+  string amount = 8;
+}
+
+message ReserveDataUpdated {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes reserve = 5;
+  string liquidity_rate = 6;
+  string stable_borrow_rate = 7;
+  string variable_borrow_rate = 8;
+  string liquidity_index = 9;
+  string variable_borrow_index = 10;
+}
+
+message ReserveUsedAsCollateralDisabled {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes reserve = 5;
+  bytes user = 6;
+}
+
+message ReserveUsedAsCollateralEnabled {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes reserve = 5;
+  bytes user = 6;
+}
+
+message Swap {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes reserve = 5;
+  bytes user = 6;
+  string rate_mode = 7;
+}
+
+message TokensRescued {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes token_rescued = 5;
+  bytes receiver = 6;
+  string amount_rescued = 7;
+}
+
+message Unpaused {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+}
+
+message Upgraded {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes implementation = 5;
+}
+
+message Withdraw {
+  string evt_tx_hash = 1;
+  uint32 evt_index = 2;
+  google.protobuf.Timestamp evt_block_time = 3;
+  uint64 evt_block_number = 4;
+  bytes reserve = 5;
+  bytes user = 6;
+  bytes to = 7;
+  string amount = 8;
+}

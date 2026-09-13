@@ -1,63 +1,33 @@
-"""Aave v3 on Ethereum mainnet — the first concrete ProtocolConfig + RiskModel.
+"""Aave v3 on Ethereum mainnet.
 
-What's confirmed against real sources (see docs/data_flow_sketch.md for the
-full writeup and citations):
-- Event names (Supply, Borrow, Withdraw, Repay, LiquidationCall) and the
-  health-factor formula, against aave.com/docs/aave-v3.
-- The Aave v3 Pool contract address, against Etherscan.
-- That a Substreams "Lending" dataset covering Aave v2/v3 exists on
-  substreams.dev.
+Status: config only, NOT yet wired to a real Substreams source. Phase 1
+searched substreams.dev for a published v3-specific package and found none —
+only Aave v2 has a verified, downloadable package (see aave_v2_ethereum.py,
+which is what Phase 1's real ingestion pipeline actually runs against). See
+docs/phase1_findings.md for the search and the decision to proceed on v2.
 
-What's NOT yet verified (marked "TBD" below) — do this in Phase 1, not by
-guessing a plausible-looking value now:
-- The exact published package/version/module name to consume from the
-  Lending dataset.
-- The exact topic0 hashes for each event. A wrong hash here would silently
-  match nothing rather than error, which is worse than an honest TBD.
+What IS confirmed here (against real sources, not assumed):
+- The health-factor formula (shared with v2 — see aave_risk_model.py).
+- The Aave v3 Pool contract address, via Etherscan.
+
+Revisit this file once a real v3 Substreams package is found or built.
 """
 
-from monitor.protocols.models import EventKind, PositionState, ProtocolConfig, SubstreamsSource
+from monitor.protocols.aave_risk_model import AaveRiskModel
+from monitor.protocols.models import ProtocolConfig
 
-AAVE_V3_ETHEREUM = ProtocolConfig(
-    protocol="aave-v3",
-    chain="ethereum",
-    substreams=SubstreamsSource(
-        package="lending",
-        version="TBD",  # confirm exact published version on substreams.dev in Phase 1
-        endpoint="https://substreams.dev/datasets/lending",
-        module="TBD",  # confirm exact output module name in Phase 1
-        event_topics={
-            EventKind.SUPPLY: "TBD",
-            EventKind.WITHDRAW: "TBD",
-            EventKind.BORROW: "TBD",
-            EventKind.REPAY: "TBD",
-            EventKind.LIQUIDATION: "TBD",  # Aave's LiquidationCall event
-        },
-    ),
-    contract_addresses={
-        # Aave v3 Pool, Ethereum mainnet — verified via Etherscan.
-        "pool": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
-    },
-    notes=(
-        "The Substreams 'Lending' dataset's own registry description says it "
-        "already surfaces on-chain USD valuations via oracle lookups, so a "
-        "separate Chainlink price-feed module may not be needed — confirm "
-        "this by inspecting real output before building one in Phase 1."
-    ),
-)
+AAVE_V3_ETHEREUM_CONTRACTS = {
+    # Aave v3 Pool, Ethereum mainnet — verified via Etherscan.
+    "pool": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+}
 
 
-class AaveV3RiskModel:
-    """Aave v3's health factor: (collateral * liquidationThreshold) / debt.
+def build_aave_v3_ethereum_config() -> ProtocolConfig:
+    """Raise until a real v3 Substreams source is found — see module docstring."""
+    raise NotImplementedError(
+        "No verified Aave v3 Substreams package found yet (see docs/phase1_findings.md). "
+        "aave_v2_ethereum.AAVE_V2_ETHEREUM is the real, working config for now."
+    )
 
-    Confirmed against Aave v3 docs' getUserAccountData() description
-    (aave.com/docs/aave-v3/smart-contracts/pool): totalCollateralBase,
-    totalDebtBase, and currentLiquidationThreshold combine exactly this way.
-    """
 
-    def compute_health_factor(self, position: PositionState) -> float:
-        """Return infinity for a debt-free position rather than dividing by zero."""
-        if position.total_debt_usd == 0:
-            return float("inf")
-        weighted_collateral = position.total_collateral_usd * position.liquidation_threshold
-        return weighted_collateral / position.total_debt_usd
+AaveV3RiskModel = AaveRiskModel  # same math; kept as an alias for a readable import name

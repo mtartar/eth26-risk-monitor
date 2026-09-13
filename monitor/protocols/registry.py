@@ -1,19 +1,25 @@
 """Registry mapping a protocol/chain key to its config and risk model.
 
 This is the seam that makes the system generic: adding a new protocol/chain
-pair means writing one new module (like aave_v3_ethereum.py) and adding two
+pair means writing one new module (like aave_v2_ethereum.py) and adding two
 entries here — no other code should need to change.
+
+aave-v3-ethereum is deliberately not registered yet: no verified Substreams
+package exists for it (see docs/phase1_findings.md). Registering a config
+with no real data source behind it would let code silently "succeed" against
+nothing — better to fail an unknown-key lookup than a real risk-monitoring
+system that quietly monitors nothing.
 """
 
-from monitor.protocols.aave_v3_ethereum import AAVE_V3_ETHEREUM, AaveV3RiskModel
+from monitor.protocols.aave_v2_ethereum import AAVE_V2_ETHEREUM, AaveV2RiskModel
 from monitor.protocols.models import ProtocolConfig, RiskModel
 
 PROTOCOL_CONFIGS: dict[str, ProtocolConfig] = {
-    "aave-v3-ethereum": AAVE_V3_ETHEREUM,
+    "aave-v2-ethereum": AAVE_V2_ETHEREUM,
 }
 
 RISK_MODELS: dict[str, RiskModel] = {
-    "aave-v3-ethereum": AaveV3RiskModel(),
+    "aave-v2-ethereum": AaveV2RiskModel(),
 }
 
 

@@ -16,7 +16,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class EventKind(str, Enum):
@@ -36,13 +36,19 @@ class EventKind(str, Enum):
 
 
 class SubstreamsSource(BaseModel):
-    """Where to get one protocol/chain's real-time event stream."""
+    """Where to get one protocol/chain's real-time event stream.
 
-    package: str
-    version: str
-    endpoint: str
-    module: str
-    event_topics: dict[EventKind, str]
+    Phase 0 originally assumed we'd need raw EVM log topic hashes per event
+    kind, for filtering undecoded logs ourselves. Phase 1 found that real,
+    published Substreams packages typically decode events server-side into a
+    structured message already (see docs/phase1_findings.md) — so there's
+    nothing to filter by topic; we just consume output_module's output.
+    """
+
+    package_path: str
+    network: str
+    output_module: str
+    initial_block: int
 
 
 class ProtocolConfig(BaseModel):
@@ -87,4 +93,34 @@ class RiskModel(Protocol):
 
     def compute_health_factor(self, position: PositionState) -> float:
         """Return the health factor for a position; below 1.0 means eligible for liquidation."""
+        ...
+
+
+class NormalizedEvent(BaseModel):
+    """A protocol-agnostic lending event, decoded from whatever wire format the source used.
+
+    extra holds fields too protocol-specific to generalize (e.g. a
+    liquidation's collateral/debt asset pair) without forcing every protocol
+    into the same shape — the scoring engine reads the common fields above
+    and treats extra as opaque, protocol-specific context.
+    """
+
+    kind: EventKind
+    protocol: str
+    chain: str
+    tx_hash: str
+    log_index: int
+    block_number: int
+    block_time: datetime
+    user_address: str | None = None
+    reserve_address: str | None = None
+    amount_raw: str | None = None
+    extra: dict[str, str] = Field(default_factory=dict)
+
+
+class EventDecoder(Protocol):
+    """Turns one block's raw Substreams module output bytes into normalized events."""
+
+    def decode(self, raw_output: bytes) -> list[NormalizedEvent]:
+        """Decode raw module output into zero or more NormalizedEvents."""
         ...
