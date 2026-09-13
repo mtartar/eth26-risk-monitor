@@ -11,11 +11,11 @@ A real-time risk-monitoring agent for DeFi lending positions, built on The Graph
 - `poc-thegraph/03_names_and_architecture.md` — naming, ETHOnline 2026 track-fit strategy, production architecture
 - `poc-thegraph/04_implementation_plan.md` — the phased build plan this repo follows
 
-## Status: Phase 2 (scoring engine) complete
+## Status: Phase 3 (AI reasoning layer) complete
 
-Phase 1 built real event ingestion (`chain → gRPC → decoder → cursor-persisted sink → event bus`), resumable after a crash with no gap and no duplicate. Phase 2 builds on top: `monitor/scoring/` turns those events into a live health factor per user, with reorg-safe state (undo-then-replay), alert-fatigue-safe reporting (hysteresis — only real risk-level changes are reported, not every recompute), and **two real historical Aave v2 liquidations reproduced from real on-chain amounts and real, live-fetched reserve thresholds**, confirming the math against genuine outcomes rather than synthetic-only fixtures. See [docs/phase2_findings.md](docs/phase2_findings.md) for the full story — including a real infrastructure finding (the free public RPC's "archive" cutoff turned out to be inconsistent, not a fixed window) and why raw Aave events needing no USD price at all works out fine for the health-factor ratio.
+Phase 1 built real event ingestion (`chain → gRPC → decoder → cursor-persisted sink → event bus`), resumable after a crash with no gap and no duplicate. Phase 2 turned those events into a live health factor per user (`monitor/scoring/`), reorg-safe and alert-fatigue-safe, validated against two real historical Aave v2 liquidations. Phase 3 adds the AI layer (`monitor/ai/`): a corrective-action recommendation (real math computed first — Claude can only choose *which* precomputed option, not invent a number), plain-English explanations of *why* risk changed, and a natural-language query interface over live tracked positions. All three are verified against the real Anthropic API, not just mocks — `pytest -m integration` → 5 passed, covering the plan's required 3 distinct scenarios (price crash, new large borrow, partial repayment). See [docs/phase3_findings.md](docs/phase3_findings.md).
 
-One pivot from Phase 1 carries forward: **Phase 0 targeted Aave v3, but no verified v3 Substreams package exists** — the real, working pipeline targets **Aave v2** instead. See [docs/phase1_findings.md](docs/phase1_findings.md) for that story, including what's real/tested vs. what's written-to-spec-but-not-live-verified in the ingestion layer (everything except the actual network call to a live Substreams endpoint, since no `SUBSTREAMS_API_TOKEN` was available while building this).
+Two pivots from earlier phases carry forward: **Phase 0 targeted Aave v3, but no verified v3 Substreams package exists** — the real, working pipeline targets **Aave v2** instead ([docs/phase1_findings.md](docs/phase1_findings.md)); and raw Aave events carry no USD price, resolved by recognizing health factor is a ratio invariant to a consistently-applied price unit ([docs/phase2_findings.md](docs/phase2_findings.md)).
 
 ## Design: generic by construction
 
@@ -28,6 +28,8 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 pytest
 ```
+
+`ANTHROPIC_API_KEY` for the AI layer (`monitor/ai/`) is reused from `eth26-graph-trail/.env` automatically if that sibling repo is checked out — see `monitor/config.py`. To run the AI layer's real integration tests: `pytest -m integration` (excluded from the default `pytest` run since it costs real API credit).
 
 To run against a real, live Substreams stream (optional — everything above works and is tested without this): copy `.env.example` to `.env`, get a token per [docs/phase1_findings.md](docs/phase1_findings.md), and follow the manual smoke test there.
 

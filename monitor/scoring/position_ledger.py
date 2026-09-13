@@ -34,6 +34,10 @@ class PositionLedger:
         """Drop every applied event strictly after last_valid_block (a reorg occurred)."""
         self._events = [e for e in self._events if e.block_number <= last_valid_block]
 
+    def tracked_users(self) -> set[str]:
+        """Return every user address with at least one applied event, lowercased."""
+        return {e.user_address.lower() for e in self._events if e.user_address is not None}
+
     def raw_balances(self, user_address: str) -> RawBalances:
         """Recompute this user's per-reserve raw collateral/debt balances from the full log."""
         balances: RawBalances = {}

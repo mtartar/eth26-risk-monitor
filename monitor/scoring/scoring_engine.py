@@ -12,7 +12,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 
 from monitor.ingestion.event_bus import EventBus, UndoSignal
-from monitor.protocols.models import NormalizedEvent, RiskModel
+from monitor.protocols.models import NormalizedEvent, PositionState, RiskModel
 from monitor.scoring.position_ledger import PositionLedger
 from monitor.scoring.price_oracle import PriceOracle
 from monitor.scoring.risk_state import HysteresisTracker, RiskTransition
@@ -53,20 +53,31 @@ class ScoringEngine:
         """Revert the ledger to its state as of last_valid_block."""
         self._ledger.undo(undo.last_valid_block)
 
-    def current_health_factor(
+    def current_position(
         self, user_address: str, as_of_block: int, as_of_timestamp: datetime
-    ) -> float:
-        """Compute a user's current health factor without applying a new event.
+    ) -> PositionState:
+        """Build a user's current PositionState without applying a new event.
 
         For inspecting state between events (e.g. in tests confirming a
         position was already liquidatable before the liquidation event
-        itself is applied) — doesn't touch hysteresis, since no new
+        itself is applied, or the Phase 3 AI layer narrating a real,
+        already-computed position) — doesn't touch hysteresis, since no new
         observation is being "reported."
         """
-        position = self._ledger.position_state(
+        return self._ledger.position_state(
             user_address, self._price_oracle, as_of_block, as_of_timestamp
         )
+
+    def current_health_factor(
+        self, user_address: str, as_of_block: int, as_of_timestamp: datetime
+    ) -> float:
+        """Compute a user's current health factor without applying a new event."""
+        position = self.current_position(user_address, as_of_block, as_of_timestamp)
         return self._risk_model.compute_health_factor(position)
+
+    def tracked_users(self) -> set[str]:
+        """Return every user address this engine has ever seen an event for."""
+        return self._ledger.tracked_users()
 
     async def run(self, event_bus: EventBus) -> AsyncIterator[RiskTransition]:
         """Consume the bus forever, yielding only actual risk-level transitions."""
